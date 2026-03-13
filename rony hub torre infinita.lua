@@ -1,6 +1,6 @@
 --[[
     RONY HUB
-    Farm • Torre • Mundos • Rebirth • Speed • Anti-AFK
+    Farm • Torre • Mundos • Rebirth • Speed • Anti-AFK • Pets
 --]]
 
 -- ═══════════════════════════════════════
@@ -27,7 +27,7 @@ local char = LP.Character or LP.CharacterAdded:Wait()
 local hrp  = char:WaitForChild("HumanoidRootPart")
 
 -- ═══════════════════════════════════════
---  ESTADO
+--  ESTADO GERAL
 -- ═══════════════════════════════════════
 local farmingWin    = false
 local farmingTorre  = false
@@ -49,6 +49,13 @@ local ToggleTorreRef   = nil
 local ToggleRebirthRef = nil
 local ToggleSpeedRef   = nil
 local ToggleAfkRef     = nil
+local TogglePetsRef    = nil
+
+-- ═══════════════════════════════════════
+--  ESTADO PETS
+-- ═══════════════════════════════════════
+local autoEggAtivo = false
+local eggGiros     = 0
 
 -- ═══════════════════════════════════════
 --  HELPERS
@@ -186,6 +193,33 @@ function loopRebirth()
 end
 
 -- ═══════════════════════════════════════
+--  PETS — GIRAR OVO MAIS FORTE
+--  Mesmo RemoteEvent e estrutura do script original.
+--  EggName = "Zombie" (ovo mais forte), EggAmount = "max"
+-- ═══════════════════════════════════════
+function loopEgg()
+    while autoEggAtivo do
+        pcall(function()
+            local args = {
+                "Eggs",
+                "RequestPurchase",
+                {
+                    PetsToAutoDelete = {},
+                    EggAmount        = "max",
+                    EggName          = "Zombie"
+                }
+            }
+            game:GetService("ReplicatedStorage")
+                :WaitForChild("Events")
+                :WaitForChild("InvokeServerAction")
+                :InvokeServer(unpack(args))
+        end)
+        eggGiros = eggGiros + 1
+        task.wait(0.3)
+    end
+end
+
+-- ═══════════════════════════════════════
 --  SPEED BOOST
 -- ═══════════════════════════════════════
 function enableSpeed()
@@ -231,6 +265,7 @@ local function PararTudo()
     farmingTorre = false
     rebirthAtivo = false
     speedAtivo   = false
+    autoEggAtivo = false
 
     local h = GetHum()
     if h then h.WalkSpeed = 16 end
@@ -239,6 +274,7 @@ local function PararTudo()
     if ToggleTorreRef   then pcall(function() ToggleTorreRef:SetValue(false)   end) end
     if ToggleRebirthRef then pcall(function() ToggleRebirthRef:SetValue(false) end) end
     if ToggleSpeedRef   then pcall(function() ToggleSpeedRef:SetValue(false)   end) end
+    if TogglePetsRef    then pcall(function() TogglePetsRef:SetValue(false)    end) end
 
     statusTxt = "Parado | Total: " .. collected
     Fluent:Notify({ Title = "Rony Hub", Content = "Tudo parado!", Duration = 3 })
@@ -256,6 +292,7 @@ LP.CharacterAdded:Connect(function(c)
     if farmingTorre then task.spawn(loopTorre)   end
     if farmingWin   then task.spawn(loopWin)     end
     if rebirthAtivo then task.spawn(loopRebirth) end
+    if autoEggAtivo then task.spawn(loopEgg)     end
 end)
 
 -- ═══════════════════════════════════════
@@ -274,10 +311,11 @@ local function MkTxt(y, cor)
     return d
 end
 
-local HudFarm    = MkTxt(40, Color3.fromRGB(0,   220, 160))
-local HudTorre   = MkTxt(58, Color3.fromRGB(255, 200, 80 ))
-local HudRebirth = MkTxt(76, Color3.fromRGB(140, 180, 255))
-local HudAfk     = MkTxt(94, Color3.fromRGB(200, 200, 200))
+local HudFarm    = MkTxt(40,  Color3.fromRGB(0,   220, 160))
+local HudTorre   = MkTxt(58,  Color3.fromRGB(255, 200, 80 ))
+local HudRebirth = MkTxt(76,  Color3.fromRGB(140, 180, 255))
+local HudAfk     = MkTxt(94,  Color3.fromRGB(200, 200, 200))
+local HudPets    = MkTxt(112, Color3.fromRGB(255, 120, 220))
 
 RunService.PreSimulation:Connect(function()
     HudFarm.Text    = "[Farm] " .. statusTxt
@@ -291,6 +329,9 @@ RunService.PreSimulation:Connect(function()
 
     HudAfk.Text    = "[Anti-AFK] Ativo"
     HudAfk.Visible = antiAfkAtivo
+
+    HudPets.Text    = "[Pets] Giros: " .. eggGiros
+    HudPets.Visible = autoEggAtivo
 end)
 
 local StatusPara = nil
@@ -308,7 +349,7 @@ end)
 -- ═══════════════════════════════════════
 local Win = Fluent:CreateWindow({
     Title    = "Rony Hub",
-    SubTitle = "Farm • Mundos • Rebirth • Speed",
+    SubTitle = "Farm • Mundos • Rebirth • Speed • Pets",
     TabWidth = 160,
     Size     = UDim2.new(0, 600, 0, 500),
     Acrylic  = false,
@@ -320,7 +361,7 @@ local TabTorre    = Win:AddTab({ Title = "Torre",    Icon = "shield"     })
 local TabMundos   = Win:AddTab({ Title = "Mundos",   Icon = "map-pin"    })
 local TabRebirth  = Win:AddTab({ Title = "Rebirth",  Icon = "refresh-cw" })
 local TabExtras   = Win:AddTab({ Title = "Extras",   Icon = "zap"        })
-
+local TabPets     = Win:AddTab({ Title = "Pets",     Icon = "star"       })
 local TabSettings = Win:AddTab({ Title = "Config",   Icon = "settings"   })
 
 -- ════════════════════════════
@@ -533,11 +574,41 @@ TabExtras:AddButton({
     Callback = function() PararTudo() end,
 })
 
+-- ════════════════════════════
+--  ABA: PETS
+-- ════════════════════════════
+TogglePetsRef = TabPets:AddToggle("ToggleEgg", {
+    Title       = "Girar Pet mais forte",
+    Description = "Gira o ovo Zombie no máximo usando o RemoteEvent do jogo",
+    Default     = false,
+    Callback    = function(v)
+        autoEggAtivo = v
+        if v then
+            eggGiros = 0
+            task.spawn(loopEgg)
+            Fluent:Notify({ Title = "Pets", Content = "Girando ovo!", Duration = 2 })
+        else
+            Fluent:Notify({ Title = "Pets", Content = "Parado. Giros: " .. eggGiros, Duration = 2 })
+        end
+    end,
+})
 
+TabPets:AddParagraph({
+    Title   = "Info",
+    Content = "Gira o ovo mais forte (Zombie) com EggAmount = max.\nO total de giros aparece no HUD da tela.",
+})
+
+TabPets:AddButton({
+    Title    = "Parar Pets",
+    Callback = function()
+        autoEggAtivo = false
+        if TogglePetsRef then pcall(function() TogglePetsRef:SetValue(false) end) end
+        Fluent:Notify({ Title = "Pets", Content = "Parado. Giros: " .. eggGiros, Duration = 2 })
+    end,
+})
 
 -- ════════════════════════════
 --  ABA: CONFIG (SaveManager)
---  Salva automaticamente os toggles e sliders
 -- ════════════════════════════
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
@@ -555,7 +626,7 @@ Win:SelectTab(1)
 task.delay(1, function()
     Fluent:Notify({
         Title    = "Rony Hub Carregado",
-        Content  = "Farm | Torre | Mundos | Rebirth | Speed | Anti-AFK",
+        Content  = "Farm | Torre | Mundos | Rebirth | Speed | Anti-AFK | Pets",
         Duration = 4,
     })
 end)
